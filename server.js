@@ -7,21 +7,34 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
+const TEXT_FILE = 'last_text.txt';
+
+// 🔹 서버 시작 시 저장된 마지막 텍스트 불러오기
+let lastText = "";
+if (fs.existsSync(TEXT_FILE)) {
+    lastText = fs.readFileSync(TEXT_FILE, 'utf8').trim();
+}
+
 app.use(express.static('public')); // 정적 파일 제공
 
 wss.on('connection', (ws) => {
     console.log('클라이언트 연결됨');
+
+    // 🔹 새 클라이언트에게 마지막 저장된 텍스트 전송
+    if (lastText) {
+        ws.send(lastText);
+    }
 
     ws.on('message', (message) => {
         const text = message.toString();
         if (text.length > 100) return; // 100자 초과 방지
         console.log(`받은 메시지: ${text}`);
 
-        // 텍스트를 logs.txt에 기록
-        const logEntry = `[${new Date().toISOString()}] ${text}\n`;
-        fs.appendFileSync('logs.txt', logEntry, 'utf8');
+        // 🔹 마지막 입력값 저장
+        lastText = text;
+        fs.writeFileSync(TEXT_FILE, text, 'utf8');
 
-        // 모든 클라이언트에게 전송
+        // 🔹 모든 클라이언트에게 전송
         wss.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
                 client.send(text);
